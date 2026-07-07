@@ -1,3 +1,5 @@
+import { desc, eq, sql } from 'drizzle-orm'
+import { scoreAt } from '@/domain/trending/decay'
 import {
   EPOCH0_SECONDS,
   HALF_LIVES_SECONDS,
@@ -5,11 +7,15 @@ import {
   bucketOf,
   type EventKind,
 } from '@/domain/trending/weights'
-import { sqlClient } from './db'
+import { db, movies, sqlClient, trending, type Movie } from './db'
 
-/** Built from the domain constant rather than written out, so adding a half-life
- *  cannot leave the SQL and the TypeScript disagreeing. */
+/** Built from the domain constants rather than written out, so adding a half-life
+ *  or changing a weight cannot leave the SQL and the TypeScript disagreeing. */
 const HALF_LIFE_VALUES = HALF_LIVES_SECONDS.map((h) => `(${h})`).join(', ')
+
+const WEIGHT_CASE = `CASE e.kind ${Object.entries(WEIGHT)
+  .map(([kind, weight]) => `WHEN '${kind}' THEN ${weight}`)
+  .join(' ')} ELSE 1 END`
 
 /**
  * One atomic statement doing three things:
@@ -69,4 +75,56 @@ export async function recordEvents(
     WEIGHT[kind],
     atSeconds - EPOCH0_SECONDS,
   ])
+}
+
+export type TrendingEntry = Movie & { logAcc: number; score: number }
+
+export async function getTrending(halfLife: number, limit = 24): Promise<TrendingEntry[]> {
+  const rows = await db
+    .select({ movie: movies, logAcc: trending.logAcc })
+    .from(trending)
+    .innerJoin(movies, eq(movies.id, trending.movieId))
+    .where(eq(trending.halfLife, halfLife))
+    .orderBy(desc(trending.logAcc))
+    .limit(limit)
+
+  const now = Date.now() / 1000
+  return rows.map(({ movie, logAcc }) => ({
+    ...movie,
+    logAcc,
+    score: scoreAt(logAcc, now, halfLife),
+  }))
+}
+
+/**
+ * Recomputes every accumulator from the journal. `trending` is a derived cache;
+ * this is the statement that makes that claim testable, and it is also how the
+ * seed script materialises its generated history.
+ *
+ * Log-sum-exp over a whole group: subtract the group maximum before exponentiating,
+ * then add it back. Same trick as `logAdd`, applied to an aggregate.
+ */
+export const REBUILD_SQL = `
+INSERT INTO trending (movie_id, half_life, log_acc, updated_at)
+SELECT movie_id, half_life, ln(sum(exp(term - mx))) + mx, now()
+FROM (
+  SELECT e.movie_id,
+         hl.half_life,
+         ln(${WEIGHT_CASE})
+           + (ln(2) / hl.half_life)
+           * (extract(epoch FROM e.occurred_at) - ${EPOCH0_SECONDS}) AS term,
+         max(ln(${WEIGHT_CASE})
+           + (ln(2) / hl.half_life)
+           * (extract(epoch FROM e.occurred_at) - ${EPOCH0_SECONDS}))
+           OVER (PARTITION BY e.movie_id, hl.half_life) AS mx
+  FROM events e
+  CROSS JOIN (VALUES ${HALF_LIFE_VALUES}) AS hl(half_life)
+) t
+GROUP BY movie_id, half_life, mx
+ON CONFLICT (movie_id, half_life) DO UPDATE
+SET log_acc = EXCLUDED.log_acc, updated_at = now()
+`
+
+export async function rebuildTrending(): Promise<void> {
+  await db.execute(sql.raw(REBUILD_SQL))
 }
