@@ -3,7 +3,7 @@ import { VISITOR_COOKIE } from '@/server/visitor'
 
 const ONE_YEAR = 60 * 60 * 24 * 365
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next()
   if (!request.cookies.get(VISITOR_COOKIE)) {
     response.cookies.set(VISITOR_COOKIE, crypto.randomUUID(), {
