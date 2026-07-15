@@ -79,7 +79,11 @@ export async function recordEvents(
 
 export type TrendingEntry = Movie & { logAcc: number; score: number }
 
-export async function getTrending(halfLife: number, limit = 24): Promise<TrendingEntry[]> {
+/** The instant the snapshot was scored at, returned alongside the rows so that
+ *  callers never have to read the clock a second time and disagree with it. */
+export type TrendingSnapshot = { entries: TrendingEntry[]; nowSeconds: number }
+
+export async function getTrending(halfLife: number, limit = 24): Promise<TrendingSnapshot> {
   const rows = await db
     .select({ movie: movies, logAcc: trending.logAcc })
     .from(trending)
@@ -88,12 +92,15 @@ export async function getTrending(halfLife: number, limit = 24): Promise<Trendin
     .orderBy(desc(trending.logAcc))
     .limit(limit)
 
-  const now = Date.now() / 1000
-  return rows.map(({ movie, logAcc }) => ({
-    ...movie,
-    logAcc,
-    score: scoreAt(logAcc, now, halfLife),
-  }))
+  const nowSeconds = Date.now() / 1000
+  return {
+    nowSeconds,
+    entries: rows.map(({ movie, logAcc }) => ({
+      ...movie,
+      logAcc,
+      score: scoreAt(logAcc, nowSeconds, halfLife),
+    })),
+  }
 }
 
 /**

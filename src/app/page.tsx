@@ -1,16 +1,10 @@
 import Link from 'next/link'
 import { MovieGrid } from '@/components/MovieGrid'
 import { SearchForm } from '@/components/SearchForm'
-import { HALF_LIVES_SECONDS } from '@/domain/trending/weights'
+import { HALF_LIFE_LABELS, HALF_LIVES_SECONDS } from '@/domain/trending/weights'
 import { discoverMovies, upsertMovies } from '@/server/tmdb'
 import { track } from '@/server/track'
 import { getTrending } from '@/server/trending'
-
-const LABELS: Record<number, string> = {
-  3600: 'Hot now',
-  86400: 'Today',
-  604800: 'This week',
-}
 
 export default async function HomePage({
   searchParams,
@@ -20,11 +14,11 @@ export default async function HomePage({
   const { window } = await searchParams
   const halfLife = HALF_LIVES_SECONDS.find((h) => String(h) === window) ?? 86_400
 
-  const trending = await getTrending(halfLife)
+  const { entries } = await getTrending(halfLife)
 
   // Cold start: with no recorded attention yet, fall back to TMDB popularity so
   // the page is never empty, and seed the movie cache while we are at it.
-  let list = trending
+  let list = entries
   if (list.length === 0) {
     const discovered = await discoverMovies()
     await upsertMovies(discovered)
@@ -51,7 +45,7 @@ export default async function HomePage({
                 href={`/?window=${h}`}
                 className={h === halfLife ? 'text-accent' : 'text-muted hover:text-text'}
               >
-                {LABELS[h]}
+                {HALF_LIFE_LABELS[h]}
               </Link>
             ))}
           </div>
