@@ -32,7 +32,10 @@ describe('poissonArrivals', () => {
   it('produces roughly rate * span arrivals on average', () => {
     const rate = 0.002
     const span = 86_400
-    const counts = Array.from({ length: 30 }, (_, s) => poissonArrivals(rate, span, mulberry32(s)).length)
+    const counts = Array.from(
+      { length: 30 },
+      (_, s) => poissonArrivals(rate, span, mulberry32(s)).length,
+    )
     const mean = counts.reduce((a, b) => a + b, 0) / counts.length
     expect(mean).toBeGreaterThan(rate * span * 0.7)
     expect(mean).toBeLessThan(rate * span * 1.3)
