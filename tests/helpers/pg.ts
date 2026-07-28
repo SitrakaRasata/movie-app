@@ -7,7 +7,7 @@ const MIGRATIONS_DIR = path.resolve(import.meta.dirname, '../../drizzle')
 /**
  * A real Postgres instance compiled to WebAssembly, running in-process.
  * No Docker, no network, no CI secret — and `ln`, `exp` and `greatest`
- * behave exactly as they do on Neon, which is the entire point.
+ * behave exactly as they do on a real server, which is the entire point.
  */
 export async function newTestDb() {
   const pg = new PGlite()
