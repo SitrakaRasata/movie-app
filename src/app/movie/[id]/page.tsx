@@ -24,6 +24,7 @@ export default async function MoviePage({ params }: { params: Promise<{ id: stri
             fill
             sizes="320px"
             className="object-cover"
+            priority
           />
         )}
       </div>

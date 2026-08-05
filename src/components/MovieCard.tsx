@@ -10,7 +10,17 @@ export type CardMovie = {
   originalLanguage: string | null
 }
 
-export function MovieCard({ movie, score }: { movie: CardMovie; score?: number }) {
+export function MovieCard({
+  movie,
+  score,
+  priority = false,
+}: {
+  movie: CardMovie
+  score?: number
+  /** Preloads the poster instead of lazy-loading it. Only worth setting on the
+   *  cards that are above the fold, since every preload competes with the others. */
+  priority?: boolean
+}) {
   const year = movie.releaseDate ? movie.releaseDate.slice(0, 4) : 'N/A'
   const rating = movie.voteAverage ? movie.voteAverage.toFixed(1) : 'N/A'
 
@@ -27,6 +37,7 @@ export function MovieCard({ movie, score }: { movie: CardMovie; score?: number }
             fill
             sizes="(max-width: 768px) 50vw, 25vw"
             className="object-cover"
+            priority={priority}
           />
         ) : (
           <span className="absolute inset-0 grid place-items-center text-sm text-muted">

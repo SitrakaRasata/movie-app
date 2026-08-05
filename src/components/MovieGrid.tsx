@@ -14,9 +14,10 @@ export function MovieGrid({
   }
   return (
     <ul className="mt-6 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
-      {movies.map((movie) => (
+      {movies.map((movie, index) => (
         <li key={movie.id}>
-          <MovieCard movie={movie} score={scores?.get(movie.id)} />
+          {/* One widest-breakpoint row, which is as much as can be above the fold. */}
+          <MovieCard movie={movie} score={scores?.get(movie.id)} priority={index < 4} />
         </li>
       ))}
     </ul>
