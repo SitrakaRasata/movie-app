@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [cine-taste]
+    branches: [main]
   pull_request:
-    branches: [cine-taste]
+    branches: [main]
 
 jobs:
   check:
