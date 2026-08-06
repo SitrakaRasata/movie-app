@@ -12,8 +12,8 @@ import { getVisitorId } from './visitor'
  * anti-abuse constraint doubles as the double-render guard.
  */
 export async function track(movieIds: number[], kind: EventKind): Promise<void> {
+  if (movieIds.length === 0) return
   const visitorId = await getVisitorId()
-  if (!visitorId || movieIds.length === 0) return
   const atSeconds = Math.floor(Date.now() / 1000)
   after(async () => {
     try {
