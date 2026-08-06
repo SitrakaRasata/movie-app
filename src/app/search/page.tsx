@@ -1,7 +1,6 @@
 import { MovieGrid } from '@/components/MovieGrid'
 import { SearchForm } from '@/components/SearchForm'
 import { searchMovies, upsertMovies } from '@/server/tmdb'
-import { track } from '@/server/track'
 
 export default async function SearchPage({
   searchParams,
@@ -11,11 +10,11 @@ export default async function SearchPage({
   const { q = '' } = await searchParams
   const results = await searchMovies(q)
 
+  // Cached, but deliberately not tracked. Matching a query is not attention: it
+  // says what the searcher typed, not what anyone looked at, and counting it let
+  // one search put twenty arbitrary movies into the ranking. They enter it when
+  // somebody actually opens one.
   await upsertMovies(results)
-  await track(
-    results.map((m) => m.id),
-    'impression',
-  )
 
   return (
     <>
