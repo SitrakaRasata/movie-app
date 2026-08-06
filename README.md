@@ -38,6 +38,13 @@ window. This is enforced by a unique index on `(visitor, movie, kind, bucket)`
 where `bucket = ⌊t / cooldown⌋`, rather than by application code, which makes it
 race-free — and it doubles as protection against a page rendering twice.
 
+That only holds if the identity is hard to renew. A cookie alone is not: dropping
+it buys a fresh allowance. When the cookie is missing the identity falls back to
+a hash of the request origin, so a client refusing to keep one gets a stable
+identity rather than none. Search results are cached but never counted — matching
+a query says what somebody typed, not what anybody watched — and crawlers are
+kept off the pages that record events.
+
 ## Data model
 
 `events` is the source of truth; `trending` is a derived cache that can be

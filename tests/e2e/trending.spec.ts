@@ -82,6 +82,76 @@ test('a reload inside the cooldown window records nothing more', async ({ page }
   expect(await countEvents(movieId, 'view')).toBe(before + 1)
 })
 
+test('a client that keeps no cookie is still held to the cooldown', async ({
+  page,
+  playwright,
+  baseURL,
+}) => {
+  await page.goto('/')
+  const movieId = await firstMovieId(
+    await page.locator(cards).evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? '')),
+  )
+  const before = await countEvents(movieId, 'view')
+
+  // A fresh context per request starts with an empty cookie jar, so the server
+  // never sees `ct_vid` and has to fall back to the request fingerprint.
+  for (let i = 0; i < 3; i++) {
+    const anonymous = await playwright.request.newContext({
+      baseURL,
+      extraHTTPHeaders: { 'user-agent': 'cooldown-probe' },
+    })
+    await anonymous.get(`/movie/${movieId}`)
+    await anonymous.dispose()
+  }
+
+  await expect.poll(() => countEvents(movieId, 'view'), { timeout: 10_000 }).toBe(before + 1)
+  await page.waitForTimeout(1_000)
+  expect(await countEvents(movieId, 'view')).toBe(before + 1)
+})
+
+test('searching caches movies without ranking them', async ({ page }) => {
+  await page.goto('/search?q=akira')
+  await expect(page.locator(`${cards} h3`).first()).toBeVisible()
+
+  const ids = (
+    await page.locator(cards).evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? ''))
+  ).map((href) => Number(href.split('/').pop()))
+  expect(ids.length).toBeGreaterThan(0)
+
+  const cached = await pool.query<{ n: string }>(
+    'SELECT count(*) AS n FROM movies WHERE id = ANY($1::int[])',
+    [ids],
+  )
+  expect(Number(cached.rows[0].n)).toBe(ids.length)
+
+  // Counted as a delta, because a popular result may legitimately already carry
+  // events from the ranking itself.
+  const eventsForResults = async () => {
+    const { rows } = await pool.query<{ n: string }>(
+      'SELECT count(*) AS n FROM events WHERE movie_id = ANY($1::int[])',
+      [ids],
+    )
+    return Number(rows[0].n)
+  }
+  const before = await eventsForResults()
+  await page.reload()
+  await page.waitForTimeout(1_500)
+  expect(await eventsForResults()).toBe(before)
+})
+
+test('publishes crawl rules and hardening headers', async ({ request }) => {
+  const robots = await request.get('/robots.txt')
+  expect(robots.ok()).toBe(true)
+  const body = await robots.text()
+  expect(body).toContain('Disallow: /search')
+  expect(body).toContain('Disallow: /movie/')
+
+  const home = await request.get('/')
+  expect(home.headers()['x-content-type-options']).toBe('nosniff')
+  expect(home.headers()['x-frame-options']).toBe('DENY')
+  expect(home.headers()['referrer-policy']).toBe('strict-origin-when-cross-origin')
+})
+
 const explorerScores = 'ol li span.text-accent'
 const explorerTitles = 'ol li > span:first-child'
 
@@ -111,7 +181,7 @@ test('each half-life is scored with its own accumulators', async ({ page }) => {
   await page.goto('/model')
   const day = await page.locator(explorerScores).allTextContents()
 
-  await page.getByLabel('Half-life').selectOption('604800')
+  await page.getByRole('combobox').selectOption('604800')
   await expect.poll(() => page.locator(explorerScores).allTextContents()).not.toEqual(day)
 
   // Scoring one half-life's accumulators with another's decay rate used to land
