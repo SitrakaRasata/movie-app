@@ -12,6 +12,11 @@ const CURVES = 8
 const AHEAD_MAX = 4
 const AHEAD_STEP = 0.25
 
+/** Shared by the curve and its swatch, so a line can never lose its label. */
+function curveColor(index: number): string {
+  return `hsl(${(index * 47) % 360} 70% 60%)`
+}
+
 function formatAhead(seconds: number): string {
   if (seconds === 0) return 'now'
   if (seconds < 86_400) return `+${Math.round(seconds / 3600)} h`
@@ -81,7 +86,12 @@ export function DecayExplorer({
         </label>
       </div>
 
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full rounded-2xl bg-surface p-2">
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        className="w-full rounded-2xl bg-surface p-2"
+        role="img"
+        aria-label={`Decay curves for the top ${scored.length} movies over ${formatAhead(horizon).replace('+', '')} at the ${HALF_LIFE_LABELS[halfLife]} half-life. The ranking is listed below.`}
+      >
         {scored.map((entry, i) => {
           const points = Array.from({ length: 60 }, (_, step) => {
             const t = now + (step / 59) * horizon
@@ -93,7 +103,7 @@ export function DecayExplorer({
               key={entry.id}
               points={points}
               fill="none"
-              stroke={`hsl(${(i * 47) % 360} 70% 60%)`}
+              stroke={curveColor(i)}
               strokeWidth="2"
             />
           )
@@ -110,6 +120,11 @@ export function DecayExplorer({
         {scored.map((entry, i) => (
           <li key={entry.id} className="flex items-baseline justify-between gap-4">
             <span>
+              <span
+                aria-hidden
+                className="mr-2 inline-block size-2.5 rounded-xs align-middle"
+                style={{ background: curveColor(i) }}
+              />
               <span className="text-muted">{i + 1}.</span> {entry.title}
             </span>
             <span className="text-sm text-accent">{entry.score.toFixed(3)}</span>
