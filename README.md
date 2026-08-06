@@ -55,7 +55,7 @@ Postgres · Tailwind CSS · Zod · Vitest with fast-check · Playwright
 Requires Node 24, pnpm and a Postgres 16 server.
 
     pnpm install
-    cp .env.example .env.local    # then fill in the three values
+    cp .env.example .env.local    # then fill in the two values
     pnpm db:migrate
     pnpm seed                     # generates a fortnight of plausible traffic
     pnpm dev

@@ -36,4 +36,3 @@ jobs:
         env:
           DATABASE_URL: postgres://ci:ci@localhost/ci
           TMDB_READ_TOKEN: ci-token
-          COOKIE_SECRET: ci-cookie-secret-value

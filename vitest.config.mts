@@ -10,7 +10,6 @@ export default defineConfig({
     env: {
       DATABASE_URL: 'postgres://test:test@localhost/test',
       TMDB_READ_TOKEN: 'test-token',
-      COOKIE_SECRET: 'test-cookie-secret-value',
     },
   },
   resolve: {
