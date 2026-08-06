@@ -1,4 +1,5 @@
-import { DecayExplorer } from '@/components/DecayExplorer'
+import { DecayExplorer, type ExplorerEntry } from '@/components/DecayExplorer'
+import { HALF_LIVES_SECONDS, type HalfLife } from '@/domain/trending/weights'
 import { getTrending } from '@/server/trending'
 
 /** Read at request time. Prerendering would freeze the accumulators into the build
@@ -6,7 +7,15 @@ import { getTrending } from '@/server/trending'
 export const dynamic = 'force-dynamic'
 
 export default async function ModelPage() {
-  const { entries, nowSeconds } = await getTrending(86_400, 12)
+  // One set of accumulators per half-life. They are not interchangeable: each is
+  // built with its own lambda, so scoring one with another's rate is meaningless.
+  const snapshots = await Promise.all(HALF_LIVES_SECONDS.map((h) => getTrending(h, 12)))
+  const series = Object.fromEntries(
+    HALF_LIVES_SECONDS.map((h, i) => [
+      h,
+      snapshots[i].entries.map(({ id, title, logAcc }) => ({ id, title, logAcc })),
+    ]),
+  ) as Record<HalfLife, ExplorerEntry[]>
 
   return (
     <section className="space-y-6">
@@ -23,10 +32,7 @@ export default async function ModelPage() {
           movie, so it cannot change their order. That is why this application has no scheduled job.
         </p>
       </div>
-      <DecayExplorer
-        entries={entries.map((e) => ({ id: e.id, title: e.title, logAcc: e.logAcc }))}
-        nowSeconds={nowSeconds}
-      />
+      <DecayExplorer series={series} nowSeconds={snapshots[0].nowSeconds} />
     </section>
   )
 }

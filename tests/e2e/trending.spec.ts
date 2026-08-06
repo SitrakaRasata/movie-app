@@ -82,10 +82,42 @@ test('a reload inside the cooldown window records nothing more', async ({ page }
   expect(await countEvents(movieId, 'view')).toBe(before + 1)
 })
 
-test('the model page renders the decay explorer', async ({ page }) => {
+const explorerScores = 'ol li span.text-accent'
+const explorerTitles = 'ol li > span:first-child'
+
+test('looking ahead decays every score without reordering', async ({ page }) => {
   await page.goto('/model')
   await expect(page.locator('svg polyline').first()).toBeVisible()
 
-  await page.getByRole('slider').fill('168')
-  await expect(page.locator('svg polyline').first()).toBeVisible()
+  const curve = page.locator('svg polyline').first()
+  const drawnBefore = await curve.getAttribute('points')
+  const before = await page.locator(explorerScores).allTextContents()
+  const order = await page.locator(explorerTitles).allTextContents()
+  expect(before.length).toBeGreaterThan(1)
+
+  await page.getByRole('slider').fill('4')
+
+  // Normalising against the shifted instant instead of the present divided the
+  // decay back out and left these coordinates untouched.
+  await expect.poll(() => curve.getAttribute('points')).not.toBe(drawnBefore)
+  await expect.poll(() => page.locator(explorerScores).allTextContents()).not.toEqual(before)
+
+  const after = (await page.locator(explorerScores).allTextContents()).map(Number)
+  before.map(Number).forEach((value, i) => expect(after[i]).toBeLessThan(value))
+  expect(await page.locator(explorerTitles).allTextContents()).toEqual(order)
+})
+
+test('each half-life is scored with its own accumulators', async ({ page }) => {
+  await page.goto('/model')
+  const day = await page.locator(explorerScores).allTextContents()
+
+  await page.getByLabel('Half-life').selectOption('604800')
+  await expect.poll(() => page.locator(explorerScores).allTextContents()).not.toEqual(day)
+
+  // Scoring one half-life's accumulators with another's decay rate used to land
+  // here as 0.000 or as 1e+57, so the readable range is the assertion.
+  for (const value of (await page.locator(explorerScores).allTextContents()).map(Number)) {
+    expect(value).toBeGreaterThan(0)
+    expect(value).toBeLessThan(1e6)
+  }
 })
