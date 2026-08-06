@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [cine-taste]
+  pull_request:
+    branches: [cine-taste]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm format:check
+
+      - run: pnpm lint
+
+      # The integration tests run Postgres compiled to WebAssembly, in-process,
+      # so the whole suite needs no database and no secret.
+      - run: pnpm test
+
+      # Type checking happens inside the build, which also proves the app
+      # compiles. Every route is dynamic, so nothing here reaches a database —
+      # these values only have to satisfy the environment schema.
+      - run: pnpm build
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost/ci
+          TMDB_READ_TOKEN: ci-token
+          COOKIE_SECRET: ci-cookie-secret-value
