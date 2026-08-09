@@ -3,6 +3,8 @@
 A movie discovery app whose trending ranking is driven by an exponentially
 decaying score over its own visitors' attention.
 
+**[Live demo](https://cine-taste-sr.vercel.app)**
+
 ## The idea
 
 A movie's score is the sum of the interactions it has received, each discounted
